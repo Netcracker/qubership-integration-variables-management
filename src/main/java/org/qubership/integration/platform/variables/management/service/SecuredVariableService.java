@@ -17,29 +17,25 @@
 package org.qubership.integration.platform.variables.management.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import jakarta.persistence.EntityExistsException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
-import org.qubership.integration.platform.variables.management.kubernetes.KubeApiException;
-import org.qubership.integration.platform.variables.management.kubernetes.KubeApiNotFoundException;
-import org.qubership.integration.platform.variables.management.kubernetes.KubeOperator;
 import org.qubership.integration.platform.variables.management.kubernetes.SecretUpdateCallback;
 import org.qubership.integration.platform.variables.management.model.SecretEntity;
 import org.qubership.integration.platform.variables.management.persistence.configs.entity.actionlog.ActionLog;
 import org.qubership.integration.platform.variables.management.persistence.configs.entity.actionlog.EntityType;
 import org.qubership.integration.platform.variables.management.persistence.configs.entity.actionlog.LogOperation;
 import org.qubership.integration.platform.variables.management.rest.exception.EmptyVariableFieldException;
+import org.qubership.integration.platform.variables.management.rest.exception.SecretNotFoundException;
 import org.qubership.integration.platform.variables.management.rest.exception.SecuredVariablesException;
 import org.qubership.integration.platform.variables.management.rest.exception.SecuredVariablesNotFoundException;
 import org.qubership.integration.platform.variables.management.rest.v2.dto.variables.SecretErrorResponse;
-import org.qubership.integration.platform.variables.management.util.DevModeUtil;
+import org.qubership.integration.platform.variables.management.service.secrets.SecretService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
@@ -59,33 +55,28 @@ import static java.util.Objects.isNull;
 
 @Slf4j
 @Service
-public class SecuredVariableService extends SecretService {
-
+public class SecuredVariableService {
     public static final String EMPTY_SECURED_VARIABLE_NAME_ERROR_MESSAGE = "Secured variable's name is empty";
 
+    private final SecretService secretService;
+    private final ActionsLogService actionLogger;
+    private final YAMLMapper yamlMapper;
     private final CommonVariablesService commonVariablesService;
     private final Lock lock;
     private final ConcurrentMap<String, SecretEntity> securedVariablesSecrets = new ConcurrentHashMap<>();
-    private final ObjectMapper objectMapperWithSorting;
-    private final DevModeUtil devModeUtil;
 
     @Autowired
     public SecuredVariableService(
-            @Qualifier("yamlMapper") YAMLMapper yamlMapper,
-            @Qualifier("primaryObjectMapper") ObjectMapper objectMapper,
-            KubeOperator operator,
+            SecretService secretService,
             ActionsLogService actionLogger,
-            @Value("${kubernetes.variables-secret.label}") String kubeSecretsLabel,
-            @Value("${kubernetes.variables-secret.name}") String kubeSecretV2Name,
-            DevModeUtil devModeUtil,
             @Lazy CommonVariablesService commonVariablesService,
-            @Qualifier("objectMapperWithSorting") ObjectMapper objectMapperWithSorting
+            @Qualifier("yamlMapper") YAMLMapper yamlMapper
     ) {
-        super(yamlMapper, objectMapper, operator, actionLogger, kubeSecretsLabel, kubeSecretV2Name);
+        this.secretService = secretService;
+        this.actionLogger = actionLogger;
         this.commonVariablesService = commonVariablesService;
+        this.yamlMapper = yamlMapper;
         this.lock = new ReentrantLock(true);
-        this.objectMapperWithSorting = objectMapperWithSorting;
-        this.devModeUtil = devModeUtil;
     }
 
     public Map<String, Set<String>> getAllSecretsVariablesNames() {
@@ -100,7 +91,7 @@ public class SecuredVariableService extends SecretService {
     }
 
     public Set<String> getVariablesForDefaultSecret(boolean failIfSecretNotExist) {
-        return getVariablesForSecret(getKubeSecretV2Name(), failIfSecretNotExist);
+        return getVariablesForSecret(secretService.getDefaultSecretName(), failIfSecretNotExist);
     }
 
     public Set<String> getVariablesForSecret(String secretName, boolean failIfSecretNotExist) {
@@ -113,7 +104,7 @@ public class SecuredVariableService extends SecretService {
             SecretEntity secret = securedVariablesSecrets.get(secretName);
             if (secret == null) {
                 if (failIfSecretNotExist) {
-                    throw new SecuredVariablesNotFoundException(SECRET_NOT_FOUND_ERROR_MESSAGE_FORMAT.formatted(secretName));
+                    throw SecretNotFoundException.forSecret(secretName);
                 } else {
                     return Collections.emptySet();
                 }
@@ -126,7 +117,8 @@ public class SecuredVariableService extends SecretService {
     }
 
     public Set<String> addVariablesToDefaultSecret(Map<String, String> newVariables) {
-        return addVariables(getKubeSecretV2Name(), newVariables).get(getKubeSecretV2Name());
+        String secretName = secretService.getDefaultSecretName();
+        return addVariables(secretName, newVariables).get(secretName);
     }
 
     public Map<String, Set<String>> addVariables(String secretName, Map<String, String> newVariables) {
@@ -147,13 +139,13 @@ public class SecuredVariableService extends SecretService {
             refreshVariablesForSecret(secretName, true);
             SecretEntity secret = securedVariablesSecrets.get(secretName);
             if (secret == null) {
-                throw new SecuredVariablesNotFoundException(SECRET_NOT_FOUND_ERROR_MESSAGE_FORMAT.formatted(secretName));
+                throw SecretNotFoundException.forSecret(secretName);
             }
 
             ConcurrentMap<String, String> variables = new ConcurrentHashMap<>(secret.getVariables());
             oldVariablesCopy = new HashMap<>(variables);
 
-            if (isDefaultSecret(secretName)) {
+            if (secretService.isDefaultSecret(secretName)) {
                 validateSecuredVariablesUniqueness(variables, newVariables);
             }
 
@@ -161,7 +153,7 @@ public class SecuredVariableService extends SecretService {
                 validateSecuredVariable(securedVariable.getKey(), securedVariable.getValue());
             }
 
-            updateVariablesCache(secretName, operator.addSecretData(secretName, newVariables, variables.isEmpty()));
+            updateVariablesCache(secretName, secretService.addEntries(secretName, newVariables, variables.isEmpty()));
         } finally {
             lock.unlock();
         }
@@ -176,7 +168,7 @@ public class SecuredVariableService extends SecretService {
     }
 
     public void deleteVariablesFromDefaultSecret(Set<String> variablesNames) {
-        deleteVariables(getKubeSecretV2Name(), variablesNames);
+        deleteVariables(secretService.getDefaultSecretName(), variablesNames);
     }
 
     public void deleteVariables(String secretName, Set<String> variablesNames) {
@@ -189,22 +181,27 @@ public class SecuredVariableService extends SecretService {
             return;
         }
 
+        Set<String> existedVariables;
+
         lock.lock();
         try {
             refreshVariablesForSecret(secretName, true);
             SecretEntity secret = securedVariablesSecrets.get(secretName);
+            existedVariables = new HashSet<>(secret.getVariables().keySet());
             if (secret == null) {
-                throw new SecuredVariablesNotFoundException(SECRET_NOT_FOUND_ERROR_MESSAGE_FORMAT.formatted(secretName));
+                throw SecretNotFoundException.forSecret(secretName);
             }
 
-            updateVariablesCache(secretName, operator.removeSecretData(secretName, variablesNames));
+            updateVariablesCache(secretName, secretService.removeEntries(secretName, variablesNames));
         } finally {
             lock.unlock();
         }
 
         if (logOperation) {
             final String finalSecretName = secretName;
-            variablesNames.forEach(name -> logSecuredVariableAction(name, finalSecretName, LogOperation.DELETE));
+            variablesNames.stream()
+                    .filter(existedVariables::contains)
+                    .forEach(name -> logSecuredVariableAction(name, finalSecretName, LogOperation.DELETE));
         }
     }
 
@@ -213,17 +210,16 @@ public class SecuredVariableService extends SecretService {
         Map<String, Throwable> secretUpdateExceptions = new HashMap<>();
 
         lock.lock();
+        ConcurrentMap<String, ConcurrentMap<String, String>> variablesBySecret;
         try {
             refreshAllVariablesSecrets();
+            variablesBySecret = getVariablesBySecret();
             for (Map.Entry<String, Set<String>> variablePerSecret : variablesPerSecret.entrySet()) {
                 String secretName = resolveSecretName(variablePerSecret.getKey());
                 Set<String> variablesToRemove = variablePerSecret.getValue();
                 SecretEntity secret = securedVariablesSecrets.get(secretName);
                 if (secret == null) {
-                    secretUpdateExceptions.put(
-                            secretName,
-                            new SecuredVariablesNotFoundException(SECRET_NOT_FOUND_ERROR_MESSAGE_FORMAT.formatted(secretName))
-                    );
+                    secretUpdateExceptions.put(secretName, SecretNotFoundException.forSecret(secretName));
                     continue;
                 }
 
@@ -239,7 +235,7 @@ public class SecuredVariableService extends SecretService {
                                 }
                             });
                     secretUpdateFutures.add(future);
-                    operator.removeSecretDataAsync(secretName, variablesToRemove, new SecretUpdateCallback(future));
+                    secretService.removeEntriesAsync(secretName, variablesToRemove, new SecretUpdateCallback(future));
                 } catch (Exception e) {
                     secretUpdateExceptions.putIfAbsent(
                             secretName,
@@ -258,8 +254,9 @@ public class SecuredVariableService extends SecretService {
 
         variablesPerSecret.entrySet().stream()
                 .filter(entry -> !secretUpdateExceptions.containsKey(entry.getKey()))
-                .forEach(entry -> entry.getValue().forEach(variable ->
-                        logSecuredVariableAction(variable, entry.getKey(), LogOperation.DELETE)));
+                .forEach(entry -> entry.getValue().stream()
+                        .filter(variable -> variablesBySecret.get(entry.getKey()).containsKey(variable))
+                        .forEach(variable -> logSecuredVariableAction(variable, entry.getKey(), LogOperation.DELETE)));
         if (!secretUpdateExceptions.isEmpty()) {
             List<SecretErrorResponse> errorResponses = new ArrayList<>();
             for (Map.Entry<String, Throwable> entry : secretUpdateExceptions.entrySet()) {
@@ -276,7 +273,7 @@ public class SecuredVariableService extends SecretService {
     }
 
     public String updateVariableInDefaultSecret(String name, String value) {
-        updateVariables(getKubeSecretV2Name(), Collections.singletonMap(name, value));
+        updateVariables(secretService.getDefaultSecretName(), Collections.singletonMap(name, value));
         return name;
     }
 
@@ -303,7 +300,7 @@ public class SecuredVariableService extends SecretService {
                 variables.put(name, isNull(value) ? "" : value);
             }
 
-            updateVariablesCache(secretName, operator.updateSecretData(secretName, variables));
+            updateVariablesCache(secretName, secretService.updateEntries(secretName, variables));
         } finally {
             lock.unlock();
         }
@@ -316,20 +313,13 @@ public class SecuredVariableService extends SecretService {
     public Set<String> importVariablesRequest(MultipartFile file) {
         Map<String, String> importedVariables;
         try {
-            importedVariables = yamlMapper.readValue(new String(file.getBytes()), new TypeReference<>() {
-            });
+            importedVariables = yamlMapper.readValue(new String(file.getBytes()), new TypeReference<>() {});
         } catch (IOException e) {
             log.error("Unable to convert file to variables {}", e.getMessage());
             throw new RuntimeException("Unable to convert file to variables");
         }
-        addVariables(getKubeSecretV2Name(), importedVariables, true);
-
-        importedVariables.keySet().forEach(name -> logSecuredVariableAction(name, getKubeSecretV2Name(), LogOperation.IMPORT));
-        return importedVariables.keySet();
-    }
-
-    protected Map<String, SecretEntity> getSecuredVariablesSecrets() {
-        return securedVariablesSecrets;
+        String secretName = secretService.getDefaultSecretName();
+        return addVariables(secretName, importedVariables, true).get(secretName);
     }
 
     private void validateSecuredVariable(String name, String value) {
@@ -358,44 +348,19 @@ public class SecuredVariableService extends SecretService {
     }
 
     private void refreshAllVariablesSecrets() {
-        ConcurrentMap<String, ConcurrentMap<String, String>> foundSecrets;
-
-        try {
-            foundSecrets = operator.getAllSecretsWithLabel(getKubeSecretsLabel());
-        } catch (KubeApiException e) {
-            log.error("Can't get kube secrets {}", e.getMessage());
-            if (!devModeUtil.isDevMode()) {
-                throw e;
-            }
-            foundSecrets = new ConcurrentHashMap<>();
-        }
-
+        var secrets = secretService.getAllSecretsData();
         securedVariablesSecrets.clear();
-        for (Map.Entry<String, ConcurrentMap<String, String>> entry : foundSecrets.entrySet()) {
-            String secretName = entry.getKey();
-            ConcurrentMap<String, String> secretData = entry.getValue();
-            updateVariablesCache(secretName, secretData);
-        }
+        secrets.forEach(this::updateVariablesCache);
     }
 
     private void refreshVariablesForSecret(String secretName, boolean failIfSecretNotExist) {
         try {
-            ConcurrentMap<String, String> secretData = operator.getSecretByName(secretName, failIfSecretNotExist);
+            Map<String, String> secretData = secretService.getSecretData(secretName, failIfSecretNotExist);
             updateVariablesCache(secretName, secretData);
-        } catch (KubeApiNotFoundException e) {
+        } catch (SecretNotFoundException e) {
             log.error("Cannot get secured variables from secret", e);
             securedVariablesSecrets.remove(secretName);
-            if (!devModeUtil.isDevMode()) {
-                throw new SecuredVariablesNotFoundException(
-                        SECRET_NOT_FOUND_ERROR_MESSAGE_FORMAT.formatted(secretName),
-                        e
-                );
-            }
-        } catch (KubeApiException e) {
-            log.error("Can't get kube secret: {}", e.getMessage());
-            if (!devModeUtil.isDevMode()) {
-                throw e;
-            }
+            throw e;
         }
     }
 
@@ -408,17 +373,18 @@ public class SecuredVariableService extends SecretService {
 
     private String resolveSecretName(@Nullable String secretName) {
         return StringUtils.isBlank(secretName) || "default".equalsIgnoreCase(secretName)
-                ? getKubeSecretV2Name()
+                ? secretService.getDefaultSecretName()
                 : secretName;
     }
 
     private void logSecuredVariableAction(String name, String secretName, LogOperation operation) {
-        actionLogger.logAction(ActionLog.builder()
+        ActionLog action = ActionLog.builder()
                 .entityType(EntityType.SECURED_VARIABLE)
                 .entityName(name)
                 .parentType(EntityType.SECRET)
                 .parentName(secretName)
                 .operation(operation)
-                .build());
+                .build();
+        actionLogger.logAction(action);
     }
 }
