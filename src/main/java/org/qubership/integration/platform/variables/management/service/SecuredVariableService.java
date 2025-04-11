@@ -63,7 +63,6 @@ public class SecuredVariableService {
     private final YAMLMapper yamlMapper;
     private final CommonVariablesService commonVariablesService;
     private final Lock lock;
-    private final ConcurrentMap<String, SecretEntity> securedVariablesSecrets = new ConcurrentHashMap<>();
 
     @Autowired
     public SecuredVariableService(
@@ -82,8 +81,7 @@ public class SecuredVariableService {
     public Map<String, Set<String>> getAllSecretsVariablesNames() {
         lock.lock();
         try {
-            refreshAllVariablesSecrets();
-            return getVariablesBySecret().entrySet().stream()
+            return secretService.getAllSecretsData().entrySet().stream()
                     .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().keySet()));
         } finally {
             lock.unlock();
@@ -99,18 +97,7 @@ public class SecuredVariableService {
 
         lock.lock();
         try {
-            refreshVariablesForSecret(secretName, failIfSecretNotExist);
-
-            SecretEntity secret = securedVariablesSecrets.get(secretName);
-            if (secret == null) {
-                if (failIfSecretNotExist) {
-                    throw SecretNotFoundException.forSecret(secretName);
-                } else {
-                    return Collections.emptySet();
-                }
-            }
-
-            return secret.getVariables().keySet();
+            return secretService.getSecretData(secretName, failIfSecretNotExist).keySet();
         } finally {
             lock.unlock();
         }
@@ -130,41 +117,33 @@ public class SecuredVariableService {
             return Collections.singletonMap(secretName, Collections.emptySet());
         }
 
-        Map<String, String> oldVariablesCopy;
+        String resolvedSecretName = resolveSecretName(secretName);
+        Map<String, String> variables;
 
         lock.lock();
         try {
-            secretName = resolveSecretName(secretName);
+            variables = secretService.getSecretData(resolvedSecretName, true);
 
-            refreshVariablesForSecret(secretName, true);
-            SecretEntity secret = securedVariablesSecrets.get(secretName);
-            if (secret == null) {
-                throw SecretNotFoundException.forSecret(secretName);
-            }
-
-            ConcurrentMap<String, String> variables = new ConcurrentHashMap<>(secret.getVariables());
-            oldVariablesCopy = new HashMap<>(variables);
-
-            if (secretService.isDefaultSecret(secretName)) {
+            if (secretService.isDefaultSecret(resolvedSecretName)) {
                 validateSecuredVariablesUniqueness(variables, newVariables);
             }
 
-            for (Map.Entry<String, String> securedVariable : newVariables.entrySet()) {
-                validateSecuredVariable(securedVariable.getKey(), securedVariable.getValue());
-            }
+            newVariables.forEach(this::validateSecuredVariable);
 
-            updateVariablesCache(secretName, secretService.addEntries(secretName, newVariables, variables.isEmpty()));
+            secretService.addEntries(resolvedSecretName, newVariables, variables.isEmpty());
         } finally {
             lock.unlock();
         }
 
-        for (String name : newVariables.keySet()) {
-            logSecuredVariableAction(name, secretName, importMode
+        newVariables.keySet().forEach(name -> {
+            LogOperation operation = importMode
                     ? LogOperation.IMPORT
-                    : (oldVariablesCopy.containsKey(name) ? LogOperation.UPDATE : LogOperation.CREATE));
-        }
+                    : variables.containsKey(name)
+                    ? LogOperation.UPDATE : LogOperation.CREATE;
+            logSecuredVariableAction(name, resolvedSecretName, operation);
+        });
 
-        return Collections.singletonMap(secretName, newVariables.keySet());
+        return Collections.singletonMap(resolvedSecretName, newVariables.keySet());
     }
 
     public void deleteVariablesFromDefaultSecret(Set<String> variablesNames) {
@@ -176,32 +155,25 @@ public class SecuredVariableService {
     }
 
     public void deleteVariables(String secretName, Set<String> variablesNames, boolean logOperation) {
-        secretName = resolveSecretName(secretName);
         if (CollectionUtils.isEmpty(variablesNames)) {
             return;
         }
 
+        String resolvedSecretName = resolveSecretName(secretName);
         Set<String> existedVariables;
 
         lock.lock();
         try {
-            refreshVariablesForSecret(secretName, true);
-            SecretEntity secret = securedVariablesSecrets.get(secretName);
-            existedVariables = new HashSet<>(secret.getVariables().keySet());
-            if (secret == null) {
-                throw SecretNotFoundException.forSecret(secretName);
-            }
-
-            updateVariablesCache(secretName, secretService.removeEntries(secretName, variablesNames));
+            existedVariables = secretService.getSecretData(resolvedSecretName, true).keySet();
+            secretService.removeEntries(resolvedSecretName, variablesNames);
         } finally {
             lock.unlock();
         }
 
         if (logOperation) {
-            final String finalSecretName = secretName;
             variablesNames.stream()
                     .filter(existedVariables::contains)
-                    .forEach(name -> logSecuredVariableAction(name, finalSecretName, LogOperation.DELETE));
+                    .forEach(name -> logSecuredVariableAction(name, resolvedSecretName, LogOperation.DELETE));
         }
     }
 
@@ -210,15 +182,14 @@ public class SecuredVariableService {
         Map<String, Throwable> secretUpdateExceptions = new HashMap<>();
 
         lock.lock();
-        ConcurrentMap<String, ConcurrentMap<String, String>> variablesBySecret;
+        Map<String, ? extends Map<String, String>> variablesBySecret;
         try {
-            refreshAllVariablesSecrets();
-            variablesBySecret = getVariablesBySecret();
+            variablesBySecret = secretService.getAllSecretsData();
             for (Map.Entry<String, Set<String>> variablePerSecret : variablesPerSecret.entrySet()) {
                 String secretName = resolveSecretName(variablePerSecret.getKey());
                 Set<String> variablesToRemove = variablePerSecret.getValue();
-                SecretEntity secret = securedVariablesSecrets.get(secretName);
-                if (secret == null) {
+                boolean secretExists = variablesBySecret.containsKey(secretName);
+                if (!secretExists) {
                     secretUpdateExceptions.put(secretName, SecretNotFoundException.forSecret(secretName));
                     continue;
                 }
@@ -226,10 +197,6 @@ public class SecuredVariableService {
                 try {
                     CompletableFuture<Map<String, String>> future = new CompletableFuture<Map<String, String>>()
                             .whenComplete((secretData, throwable) -> {
-                                if (secretData != null) {
-                                    updateVariablesCache(secretName, secretData);
-                                    return;
-                                }
                                 if (throwable != null) {
                                     secretUpdateExceptions.put(secretName, throwable);
                                 }
@@ -253,9 +220,9 @@ public class SecuredVariableService {
         }
 
         variablesPerSecret.entrySet().stream()
-                .filter(entry -> !secretUpdateExceptions.containsKey(entry.getKey()))
+                .filter(entry -> !secretUpdateExceptions.containsKey(resolveSecretName(entry.getKey())))
                 .forEach(entry -> entry.getValue().stream()
-                        .filter(variable -> variablesBySecret.get(entry.getKey()).containsKey(variable))
+                        .filter(variable -> variablesBySecret.get(resolveSecretName(entry.getKey())).containsKey(variable))
                         .forEach(variable -> logSecuredVariableAction(variable, entry.getKey(), LogOperation.DELETE)));
         if (!secretUpdateExceptions.isEmpty()) {
             List<SecretErrorResponse> errorResponses = new ArrayList<>();
@@ -278,15 +245,11 @@ public class SecuredVariableService {
     }
 
     public Pair<String, Set<String>> updateVariables(String secretName, Map<String, String> variablesToUpdate) {
-        secretName = resolveSecretName(secretName);
+        String resolvedSecretName = resolveSecretName(secretName);
 
         lock.lock();
         try {
-            refreshVariablesForSecret(secretName, true);
-
-            ConcurrentMap<String, String> variables = new ConcurrentHashMap<>(
-                    securedVariablesSecrets.get(secretName).getVariables()
-            );
+            Map<String, String> variables = new HashMap<>(secretService.getSecretData(resolvedSecretName, true));
 
             for (Map.Entry<String, String> variable : variablesToUpdate.entrySet()) {
                 String name = variable.getKey();
@@ -300,13 +263,12 @@ public class SecuredVariableService {
                 variables.put(name, isNull(value) ? "" : value);
             }
 
-            updateVariablesCache(secretName, secretService.updateEntries(secretName, variables));
+            secretService.updateEntries(resolvedSecretName, variables);
         } finally {
             lock.unlock();
         }
 
-        final String finalSecretName = secretName;
-        variablesToUpdate.keySet().forEach(name -> logSecuredVariableAction(name, finalSecretName, LogOperation.UPDATE));
+        variablesToUpdate.keySet().forEach(name -> logSecuredVariableAction(name, resolvedSecretName, LogOperation.UPDATE));
         return Pair.of(secretName, variablesToUpdate.keySet());
     }
 
@@ -336,39 +298,6 @@ public class SecuredVariableService {
                 throw new EntityExistsException("Common variable with name " + name + " already exists");
             }
         }
-    }
-
-    private ConcurrentMap<String, ConcurrentMap<String, String>> getVariablesBySecret() {
-        ConcurrentMap<String, ConcurrentMap<String, String>> variables = new ConcurrentHashMap<>();
-        for (Map.Entry<String, SecretEntity> entry : securedVariablesSecrets.entrySet()) {
-            variables.put(entry.getKey(), entry.getValue().getVariables());
-        }
-
-        return variables;
-    }
-
-    private void refreshAllVariablesSecrets() {
-        var secrets = secretService.getAllSecretsData();
-        securedVariablesSecrets.clear();
-        secrets.forEach(this::updateVariablesCache);
-    }
-
-    private void refreshVariablesForSecret(String secretName, boolean failIfSecretNotExist) {
-        try {
-            Map<String, String> secretData = secretService.getSecretData(secretName, failIfSecretNotExist);
-            updateVariablesCache(secretName, secretData);
-        } catch (SecretNotFoundException e) {
-            log.error("Cannot get secured variables from secret", e);
-            securedVariablesSecrets.remove(secretName);
-            throw e;
-        }
-    }
-
-    private void updateVariablesCache(String secretName, Map<String, String> variables) {
-        securedVariablesSecrets.put(secretName, SecretEntity.builder()
-                .secretName(secretName)
-                .variables(new ConcurrentHashMap<>(variables))
-                .build());
     }
 
     private String resolveSecretName(@Nullable String secretName) {
