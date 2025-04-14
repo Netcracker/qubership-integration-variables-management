@@ -24,7 +24,6 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.qubership.integration.platform.variables.management.kubernetes.SecretUpdateCallback;
-import org.qubership.integration.platform.variables.management.model.SecretEntity;
 import org.qubership.integration.platform.variables.management.persistence.configs.entity.actionlog.ActionLog;
 import org.qubership.integration.platform.variables.management.persistence.configs.entity.actionlog.EntityType;
 import org.qubership.integration.platform.variables.management.persistence.configs.entity.actionlog.LogOperation;
@@ -37,15 +36,12 @@ import org.qubership.integration.platform.variables.management.service.secrets.S
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Lazy;
-import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -58,7 +54,6 @@ import static java.util.Objects.isNull;
 public class SecuredVariableService {
     public static final String EMPTY_SECURED_VARIABLE_NAME_ERROR_MESSAGE = "Secured variable's name is empty";
 
-    private final SecretNameResolverService secretNameResolverService;
     private final SecretService secretService;
     private final ActionsLogService actionLogger;
     private final YAMLMapper yamlMapper;
@@ -67,13 +62,11 @@ public class SecuredVariableService {
 
     @Autowired
     public SecuredVariableService(
-            SecretNameResolverService secretNameResolverService,
             SecretService secretService,
             ActionsLogService actionLogger,
             @Lazy CommonVariablesService commonVariablesService,
             @Qualifier("yamlMapper") YAMLMapper yamlMapper
     ) {
-        this.secretNameResolverService = secretNameResolverService;
         this.secretService = secretService;
         this.actionLogger = actionLogger;
         this.commonVariablesService = commonVariablesService;
@@ -96,8 +89,6 @@ public class SecuredVariableService {
     }
 
     public Set<String> getVariablesForSecret(String secretName, boolean failIfSecretNotExist) {
-        secretName = secretNameResolverService.resolveSecretName(secretName);
-
         lock.lock();
         try {
             return secretService.getSecretData(secretName, failIfSecretNotExist).keySet();
@@ -120,20 +111,19 @@ public class SecuredVariableService {
             return Collections.singletonMap(secretName, Collections.emptySet());
         }
 
-        String resolvedSecretName = secretNameResolverService.resolveSecretName(secretName);
         Map<String, String> variables;
 
         lock.lock();
         try {
-            variables = secretService.getSecretData(resolvedSecretName, true);
+            variables = secretService.getSecretData(secretName, true);
 
-            if (secretService.isDefaultSecret(resolvedSecretName)) {
+            if (secretService.isDefaultSecret(secretName)) {
                 validateSecuredVariablesUniqueness(variables, newVariables);
             }
 
             newVariables.forEach(this::validateSecuredVariable);
 
-            secretService.addEntries(resolvedSecretName, newVariables, variables.isEmpty());
+            secretService.addEntries(secretName, newVariables, variables.isEmpty());
         } finally {
             lock.unlock();
         }
@@ -143,10 +133,10 @@ public class SecuredVariableService {
                     ? LogOperation.IMPORT
                     : variables.containsKey(name)
                     ? LogOperation.UPDATE : LogOperation.CREATE;
-            logSecuredVariableAction(name, resolvedSecretName, operation);
+            logSecuredVariableAction(name, secretName, operation);
         });
 
-        return Collections.singletonMap(resolvedSecretName, newVariables.keySet());
+        return Collections.singletonMap(secretName, newVariables.keySet());
     }
 
     public void deleteVariablesFromDefaultSecret(Set<String> variablesNames) {
@@ -162,13 +152,12 @@ public class SecuredVariableService {
             return;
         }
 
-        String resolvedSecretName = secretNameResolverService.resolveSecretName(secretName);
         Set<String> existedVariables;
 
         lock.lock();
         try {
-            existedVariables = secretService.getSecretData(resolvedSecretName, true).keySet();
-            secretService.removeEntries(resolvedSecretName, variablesNames);
+            existedVariables = secretService.getSecretData(secretName, true).keySet();
+            secretService.removeEntries(secretName, variablesNames);
         } finally {
             lock.unlock();
         }
@@ -176,7 +165,7 @@ public class SecuredVariableService {
         if (logOperation) {
             variablesNames.stream()
                     .filter(existedVariables::contains)
-                    .forEach(name -> logSecuredVariableAction(name, resolvedSecretName, LogOperation.DELETE));
+                    .forEach(name -> logSecuredVariableAction(name, secretName, LogOperation.DELETE));
         }
     }
 
@@ -184,14 +173,11 @@ public class SecuredVariableService {
         List<CompletableFuture<Map<String, String>>> secretUpdateFutures = new ArrayList<>();
         Map<String, Throwable> secretUpdateExceptions = new HashMap<>();
 
-        Map<String, Set<String>> resolvedVariablesPerSecret = variablesPerSecret.entrySet().stream().collect(
-                Collectors.toMap(e -> secretNameResolverService.resolveSecretName(e.getKey()), Map.Entry::getValue));
-
         lock.lock();
         Map<String, ? extends Map<String, String>> variablesBySecret;
         try {
             variablesBySecret = secretService.getAllSecretsData();
-            resolvedVariablesPerSecret.forEach((secretName, variablesToRemove) -> {
+            variablesPerSecret.forEach((secretName, variablesToRemove) -> {
                 boolean secretExists = variablesBySecret.containsKey(secretName);
                 if (!secretExists) {
                     secretUpdateExceptions.put(secretName, SecretNotFoundException.forSecret(secretName));
@@ -222,7 +208,7 @@ public class SecuredVariableService {
             lock.unlock();
         }
 
-        resolvedVariablesPerSecret.entrySet().stream()
+        variablesPerSecret.entrySet().stream()
                 .filter(entry -> !secretUpdateExceptions.containsKey(entry.getKey()))
                 .forEach(entry -> entry.getValue().stream()
                         .filter(variable -> variablesBySecret.get(entry.getKey()).containsKey(variable))
@@ -248,11 +234,9 @@ public class SecuredVariableService {
     }
 
     public Pair<String, Set<String>> updateVariables(String secretName, Map<String, String> variablesToUpdate) {
-        String resolvedSecretName = secretNameResolverService.resolveSecretName(secretName);
-
         lock.lock();
         try {
-            Map<String, String> variables = new HashMap<>(secretService.getSecretData(resolvedSecretName, true));
+            Map<String, String> variables = new HashMap<>(secretService.getSecretData(secretName, true));
 
             for (Map.Entry<String, String> variable : variablesToUpdate.entrySet()) {
                 String name = variable.getKey();
@@ -266,12 +250,12 @@ public class SecuredVariableService {
                 variables.put(name, isNull(value) ? "" : value);
             }
 
-            secretService.updateEntries(resolvedSecretName, variables);
+            secretService.updateEntries(secretName, variables);
         } finally {
             lock.unlock();
         }
 
-        variablesToUpdate.keySet().forEach(name -> logSecuredVariableAction(name, resolvedSecretName, LogOperation.UPDATE));
+        variablesToUpdate.keySet().forEach(name -> logSecuredVariableAction(name, secretName, LogOperation.UPDATE));
         return Pair.of(secretName, variablesToUpdate.keySet());
     }
 

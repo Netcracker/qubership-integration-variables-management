@@ -56,7 +56,6 @@ import static org.mockito.Mockito.*;
 @ContextConfiguration(classes = {
         MapperAutoConfiguration.class,
         KubeSecretSerializer.class,
-        SecretNameResolverService.class,
         SecuredVariableService.class
 })
 @ExtendWith(SpringExtension.class)
@@ -119,12 +118,6 @@ public class SecuredVariablesServiceTest {
         assertThat(securedVariableService.getVariablesForDefaultSecret(false), equalTo(Collections.emptySet()));
     }
 
-    @DisplayName("getVariablesForDefaultSecret should return variable names for default secret")
-    @Test
-    public void getVariablesForDefaultSecretShouldReturnVariableNamesForDefaultSecret() {
-        assertThat(securedVariableService.getVariablesForDefaultSecret(true), equalTo(Set.of("foo", "baz")));
-    }
-
     @DisplayName("getVariablesForSecret should throw an exception when the secret does not exists and fail flag is set")
     @Test
     public void getVariablesForSecretShouldThrowExceptionWhenSecretNotExistAndFailFlagIsSet() {
@@ -143,12 +136,6 @@ public class SecuredVariablesServiceTest {
     @Test
     public void getVariablesForSecretShouldReturnVariableNamesForSecret() {
         assertThat(securedVariableService.getVariablesForSecret("fiz", true), equalTo(Set.of("quux")));
-    }
-
-    @DisplayName("getVariablesForSecret should treat 'default' as the default secret")
-    @Test
-    public void getVariablesForSecretShouldRTreatDefaultAsTheDefaultSecret() {
-        assertThat(securedVariableService.getVariablesForSecret("default", true), equalTo(Set.of("foo", "baz")));
     }
 
     @DisplayName("addVariablesToDefaultSecret should delegate to addVariables")
@@ -232,17 +219,6 @@ public class SecuredVariablesServiceTest {
                         Pair.of("bla-bla-bla", LogOperation.IMPORT))));
     }
 
-    @DisplayName("addVariables should treat 'default' as default secret")
-    @Test
-    public void addVariablesShouldTreatDefaultSecretAsDefaultSecret() {
-        Map<String, String> variables = Map.of("foo", "gee", "bla-bla-bla", "ha-ha");
-        doReturn(Map.of("foo", "gee", "baz", "qux", "bla-bla-bla", "ha-ha"))
-                .when(secretService).addEntries(eq(DEFAULT_SECRET_NAME), eq(variables), anyBoolean());
-        assertThat(
-                securedVariableService.addVariables("default", variables, false),
-                equalTo(Map.of(DEFAULT_SECRET_NAME, Set.of("foo", "bla-bla-bla"))));
-    }
-
     @DisplayName("addVariables should throw an exception when variable name is empty")
     @Test
     public void addVariablesShouldThrowAnExceptionWhenVariableNameIsEmpty() {
@@ -311,14 +287,6 @@ public class SecuredVariablesServiceTest {
         assertThat(action.getOperation(), equalTo(LogOperation.DELETE));
         assertThat(action.getParentType(), equalTo(EntityType.SECRET));
         assertThat(action.getParentName(), equalTo(DEFAULT_SECRET_NAME));
-    }
-
-    @DisplayName("deleteVariables should treat 'default' as a default secret")
-    @Test
-    public void deleteVariablesShouldTreatDefaultAsDefaultSecret() {
-        Set<String> variables = Set.of("foo", "bla-bla-bla");
-        securedVariableService.deleteVariables("default", variables, false);
-        verify(secretService, times(1)).removeEntries(eq(DEFAULT_SECRET_NAME), eq(variables));
     }
 
     @DisplayName("updateVariableInDefaultSecret should delegate to updateVariables method with default secret")
