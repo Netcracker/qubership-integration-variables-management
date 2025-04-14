@@ -58,6 +58,7 @@ import static java.util.Objects.isNull;
 public class SecuredVariableService {
     public static final String EMPTY_SECURED_VARIABLE_NAME_ERROR_MESSAGE = "Secured variable's name is empty";
 
+    private final SecretNameResolverService secretNameResolverService;
     private final SecretService secretService;
     private final ActionsLogService actionLogger;
     private final YAMLMapper yamlMapper;
@@ -66,11 +67,13 @@ public class SecuredVariableService {
 
     @Autowired
     public SecuredVariableService(
+            SecretNameResolverService secretNameResolverService,
             SecretService secretService,
             ActionsLogService actionLogger,
             @Lazy CommonVariablesService commonVariablesService,
             @Qualifier("yamlMapper") YAMLMapper yamlMapper
     ) {
+        this.secretNameResolverService = secretNameResolverService;
         this.secretService = secretService;
         this.actionLogger = actionLogger;
         this.commonVariablesService = commonVariablesService;
@@ -93,7 +96,7 @@ public class SecuredVariableService {
     }
 
     public Set<String> getVariablesForSecret(String secretName, boolean failIfSecretNotExist) {
-        secretName = resolveSecretName(secretName);
+        secretName = secretNameResolverService.resolveSecretName(secretName);
 
         lock.lock();
         try {
@@ -117,7 +120,7 @@ public class SecuredVariableService {
             return Collections.singletonMap(secretName, Collections.emptySet());
         }
 
-        String resolvedSecretName = resolveSecretName(secretName);
+        String resolvedSecretName = secretNameResolverService.resolveSecretName(secretName);
         Map<String, String> variables;
 
         lock.lock();
@@ -159,7 +162,7 @@ public class SecuredVariableService {
             return;
         }
 
-        String resolvedSecretName = resolveSecretName(secretName);
+        String resolvedSecretName = secretNameResolverService.resolveSecretName(secretName);
         Set<String> existedVariables;
 
         lock.lock();
@@ -181,17 +184,18 @@ public class SecuredVariableService {
         List<CompletableFuture<Map<String, String>>> secretUpdateFutures = new ArrayList<>();
         Map<String, Throwable> secretUpdateExceptions = new HashMap<>();
 
+        Map<String, Set<String>> resolvedVariablesPerSecret = variablesPerSecret.entrySet().stream().collect(
+                Collectors.toMap(e -> secretNameResolverService.resolveSecretName(e.getKey()), Map.Entry::getValue));
+
         lock.lock();
         Map<String, ? extends Map<String, String>> variablesBySecret;
         try {
             variablesBySecret = secretService.getAllSecretsData();
-            for (Map.Entry<String, Set<String>> variablePerSecret : variablesPerSecret.entrySet()) {
-                String secretName = resolveSecretName(variablePerSecret.getKey());
-                Set<String> variablesToRemove = variablePerSecret.getValue();
+            resolvedVariablesPerSecret.forEach((secretName, variablesToRemove) -> {
                 boolean secretExists = variablesBySecret.containsKey(secretName);
                 if (!secretExists) {
                     secretUpdateExceptions.put(secretName, SecretNotFoundException.forSecret(secretName));
-                    continue;
+                    return;
                 }
 
                 try {
@@ -209,8 +213,7 @@ public class SecuredVariableService {
                             new SecuredVariablesException("Failed to delete variables from secret: " + secretName, e)
                     );
                 }
-            }
-
+            });
             CompletableFuture.allOf(secretUpdateFutures.toArray(new CompletableFuture[0])).get();
         } catch (InterruptedException | ExecutionException e) {
             log.error("Failed to delete variables", e);
@@ -219,10 +222,10 @@ public class SecuredVariableService {
             lock.unlock();
         }
 
-        variablesPerSecret.entrySet().stream()
-                .filter(entry -> !secretUpdateExceptions.containsKey(resolveSecretName(entry.getKey())))
+        resolvedVariablesPerSecret.entrySet().stream()
+                .filter(entry -> !secretUpdateExceptions.containsKey(entry.getKey()))
                 .forEach(entry -> entry.getValue().stream()
-                        .filter(variable -> variablesBySecret.get(resolveSecretName(entry.getKey())).containsKey(variable))
+                        .filter(variable -> variablesBySecret.get(entry.getKey()).containsKey(variable))
                         .forEach(variable -> logSecuredVariableAction(variable, entry.getKey(), LogOperation.DELETE)));
         if (!secretUpdateExceptions.isEmpty()) {
             List<SecretErrorResponse> errorResponses = new ArrayList<>();
@@ -245,7 +248,7 @@ public class SecuredVariableService {
     }
 
     public Pair<String, Set<String>> updateVariables(String secretName, Map<String, String> variablesToUpdate) {
-        String resolvedSecretName = resolveSecretName(secretName);
+        String resolvedSecretName = secretNameResolverService.resolveSecretName(secretName);
 
         lock.lock();
         try {
@@ -298,12 +301,6 @@ public class SecuredVariableService {
                 throw new EntityExistsException("Common variable with name " + name + " already exists");
             }
         }
-    }
-
-    private String resolveSecretName(@Nullable String secretName) {
-        return StringUtils.isBlank(secretName) || "default".equalsIgnoreCase(secretName)
-                ? secretService.getDefaultSecretName()
-                : secretName;
     }
 
     private void logSecuredVariableAction(String name, String secretName, LogOperation operation) {

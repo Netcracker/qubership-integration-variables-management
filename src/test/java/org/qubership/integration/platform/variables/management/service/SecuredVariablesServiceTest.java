@@ -56,6 +56,7 @@ import static org.mockito.Mockito.*;
 @ContextConfiguration(classes = {
         MapperAutoConfiguration.class,
         KubeSecretSerializer.class,
+        SecretNameResolverService.class,
         SecuredVariableService.class
 })
 @ExtendWith(SpringExtension.class)
