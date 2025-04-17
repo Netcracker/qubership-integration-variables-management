@@ -1,13 +1,13 @@
 package org.qubership.integration.platform.variables.management.configuration.datasource;
 
-import org.qubership.integration.platform.variables.management.db.migration.postgresql.configs.ConfigsJavaMigration;
-import org.qubership.cloud.dbaas.client.FlywayConfigurationProperties;
-import org.qubership.cloud.dbaas.client.FlywayPostgresPostProcessor;
-import org.qubership.cloud.dbaas.client.entity.database.PostgresDatabase;
 import lombok.extern.slf4j.Slf4j;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.configuration.FluentConfiguration;
 import org.flywaydb.core.api.migration.JavaMigration;
+import org.qubership.cloud.dbaas.client.FlywayConfigurationProperties;
+import org.qubership.cloud.dbaas.client.FlywayPostgresPostProcessor;
+import org.qubership.cloud.dbaas.client.entity.database.PostgresDatabase;
+import org.qubership.integration.platform.variables.management.db.migration.postgresql.configs.ConfigsJavaMigration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 

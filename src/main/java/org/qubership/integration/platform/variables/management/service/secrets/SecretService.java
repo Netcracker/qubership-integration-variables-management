@@ -24,14 +24,21 @@ import java.util.Set;
 
 public interface SecretService {
     Map<String, ? extends Map<String, String>> getAllSecretsData();
+
     Map<String, String> getSecretData(String secretName, boolean failIfNotExist);
+
     boolean createSecret(String secretName);
+
     Map<String, String> addEntries(String secretName, Map<String, String> data, boolean init);
+
     Map<String, String> updateEntries(String secretName, Map<String, String> data);
+
     Map<String, String> removeEntries(String secretName, Set<String> keys);
+
     Call removeEntriesAsync(String secretName, Set<String> keys, SecretUpdateCallback callback);
 
     String getSecretTemplate(String secretName);
+
     String getDefaultSecretName();
 
     default boolean isDefaultSecret(String secretName) {
