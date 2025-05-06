@@ -381,7 +381,6 @@
 
     <build>
         <plugins>
-        <plugins>
             <!-- Plugin for artifacts GPG signing. Mandatory for Maven Central deployment -->
             <!-- Optional for GitHub packages. Can be skipped by mvn parameter -Dgpg.skip=true -->
             <plugin>
