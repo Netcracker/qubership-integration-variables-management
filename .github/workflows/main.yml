@@ -133,7 +133,7 @@ jobs:
       download-artifact: true
 
   github-release:
-    needs: [deploy, docker-build-publish]
+    needs: [deploy]
     if: ${{ needs.deploy.result == 'success' }}
     uses: netcracker/qubership-workflow-hub/.github/workflows/release-drafter.yml@main
     with:
