@@ -383,7 +383,7 @@
         <plugins>
             <!-- Plugin for artifacts GPG signing. Mandatory for Maven Central deployment -->
             <!-- Optional for GitHub packages. Can be skipped by mvn parameter -Dgpg.skip=true -->
-            <plugin>
+            <!-- plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-gpg-plugin</artifactId>
                 <version>3.2.7</version>
@@ -396,7 +396,7 @@
                         </goals>
                     </execution>
                 </executions>
-            </plugin>
+            </plugin -->
 
             <!-- Plugin for source code jar creation. Mandatory for Maven Central deployment -->
             <plugin>
