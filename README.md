@@ -56,6 +56,11 @@ The ```config/${NAMESPACE}``` prefix is used.
 
 Application has 'development' Spring profile to run service locally with minimum dependencies.
 
+## Dependencies
+
+- Consul service.
+- Access to Kubernetes API. 
+
 ## Contribution
 
 For the details on contribution, see [Contribution Guide](CONTRIBUTING.md). For details on reporting of security issues see [Security Reporting Process](SECURITY.md).
