@@ -1,4 +1,4 @@
-# Qubership Integration Variables Management Service
+# Qubership Integration Platform — Variables Management Service
 
 Variables Management Service is a part of Qubership Integration Platform.
 It provides an API for operations on variables within the integration platform.
