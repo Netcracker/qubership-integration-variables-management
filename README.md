@@ -14,6 +14,7 @@ By default ```qip-secured-variables-v2``` secret is used.
 Label ```qip-variable-type``` is added to secrets that store Integration Platform variables.
 
 All operations on variables are being logged, and an API is provided to get the action journal.
+Variables Management service uses PostgreSQL database to store action log.
 
 ## Installation
 
@@ -60,6 +61,7 @@ Application has 'development' Spring profile to run service locally with minimum
 
 - Consul service.
 - Access to Kubernetes API. 
+- PostgreSQL database.
 
 ## Contribution
 
