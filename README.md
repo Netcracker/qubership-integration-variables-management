@@ -30,7 +30,7 @@ Application parameters can be set by environment variables.
 |--------------------------------|------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
 | TOMCAT_PORT                    | 8080                                                 | Port to listen                                                                                                                         |
 | ROOT_LOG_LEVEL                 | INFO                                                 | Logging level                                                                                                                          |
-| CONSUL_URL                     | http://consul:8500                                   | Consul URL                                                                                                                             |
+| CONSUL_URL                     | http://consul:8500/                                  | Consul URL                                                                                                                             |
 | CONSUL_ADMIN_TOKEN             |                                                      | Consul assess token                                                                                                                    |
 | ACTION_LOG_CLEANUP_INTERVAL    | 14 days                                              | Maximum age of action log records. Records older than specified value will be deleted. Examples: '1 hour', '7 days', '2 years 3 month' |
 | ACTION_LOG_CLEANUP_CRON        | 0 0 0 ? * SAT                                        | Action log cleanup task schedule in cron expression format                                                                             |
@@ -60,7 +60,7 @@ Application has 'development' Spring profile to run service locally with minimum
 ## Dependencies
 
 - Consul service.
-- Access to Kubernetes API. 
+- Access to Kubernetes API.
 - PostgreSQL database.
 
 ## Contribution
