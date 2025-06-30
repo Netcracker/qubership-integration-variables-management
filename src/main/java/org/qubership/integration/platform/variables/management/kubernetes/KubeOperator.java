@@ -25,12 +25,19 @@ import java.util.*;
 
 public interface KubeOperator {
     Map<String, ? extends Map<String, String>> getAllSecretsWithLabel(Pair<String, String> label);
+
     @Nullable
     V1Secret getSecretObjectByName(String name);
+
     Map<String, String> getSecretByName(String name, boolean failIfNotExist) throws KubeApiException;
+
     void createSecret(String name, Pair<String, String> label, Map<String, String> data);
+
     Map<String, String> addSecretData(String secretName, Map<String, String> data, boolean init);
+
     Map<String, String> removeSecretData(String secretName, Set<String> keys);
+
     Call removeSecretDataAsync(String secretName, Set<String> keys, SecretUpdateCallback callback);
+
     Map<String, String> updateSecretData(String secretName, Map<String, String> data);
 }
