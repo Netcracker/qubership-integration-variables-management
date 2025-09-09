@@ -14,23 +14,14 @@
  * limitations under the License.
  */
 
-package org.qubership.integration.platform.variables.management.persistence.configs.entity.enums.filter;
+package org.qubership.integration.platform.variables.management.service;
 
-import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.List;
+import java.util.Map;
 
-@Schema(description = "Audit log filter condition")
-public enum FilterCondition {
-    IS,
-    IS_NOT,
-    CONTAINS,
-    DOES_NOT_CONTAIN,
-    STARTS_WITH,
-    ENDS_WITH,
-    EMPTY,
-    NOT_EMPTY,
-    IN,
-    NOT_IN,
-    IS_WITHIN,
-    IS_AFTER,
-    IS_BEFORE
+public interface DefaultVariablesProvider {
+
+    List<String> getDefaultVariableNames();
+
+    Map<String, String> provide();
 }

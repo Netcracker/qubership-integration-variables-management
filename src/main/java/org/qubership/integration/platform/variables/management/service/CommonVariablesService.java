@@ -71,7 +71,6 @@ public class CommonVariablesService {
     protected static final String ZIP_EXTENSION = "zip";
     private static final String YAML_EXTENSION = "yaml";
     private static final String YML_EXTENSION = "yml";
-    private static final String[] NON_EXPORTABLE_VARIABLES = DEFAULT_VARIABLES_LIST;
     private static final String EMPTY_COMMON_VARIABLE_NAME_ERROR_MESSAGE = "Common variable's name is empty";
 
     private final ActionsLogService actionLogger;
@@ -163,7 +162,8 @@ public class CommonVariablesService {
                 : consulService.getCommonVariables(variablesNames);
 
         variablesForExport = variablesForExport.entrySet().stream()
-                .filter(name -> Arrays.stream(NON_EXPORTABLE_VARIABLES)
+                .filter(name -> DEFAULT_VARIABLES_LIST
+                        .stream()
                         .noneMatch(excludedName -> excludedName.equals(name.getKey())))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
@@ -174,7 +174,6 @@ public class CommonVariablesService {
         variablesForExport.forEach((k, v) -> logCommonVariableAction(k, LogOperation.EXPORT));
 
         byte[] contentBytes = stringMapAsByteArr(variablesForExport);
-        String filename = exportVariablesGenerateFilename();
         if (asArchive) {
             try (ByteArrayOutputStream fos = new ByteArrayOutputStream()) {
                 try (ZipOutputStream zipOut = new ZipOutputStream(fos)) {
@@ -183,16 +182,16 @@ public class CommonVariablesService {
                     zipOut.putNextEntry(new ZipEntry(path));
                     zipOut.closeEntry();
 
-                    zipOut.putNextEntry(new ZipEntry(path + filename));
+                    zipOut.putNextEntry(new ZipEntry(path + exportVariablesGenerateFilename(false)));
                     zipOut.write(contentBytes, 0, contentBytes.length);
                     zipOut.closeEntry();
                 }
-                return new VariablesFileResponse(fos.toByteArray(), filename);
+                return new VariablesFileResponse(fos.toByteArray(), exportVariablesGenerateFilename(true));
             } catch (IOException e) {
                 throw new RuntimeException("Unknown exception while archive creation: " + e.getMessage());
             }
         } else {
-            return new VariablesFileResponse(contentBytes, filename);
+            return new VariablesFileResponse(contentBytes, exportVariablesGenerateFilename(false));
         }
     }
 
@@ -236,7 +235,7 @@ public class CommonVariablesService {
     private Map<String, String> importVariableZip(MultipartFile file) {
         Map<String, String> variablesForImport = Collections.emptyMap();
 
-        String directoryForExport = UUID.randomUUID().toString();
+        String directoryForExport = ExportImportUtils.IMPORT_TMP_DIR_PATH + UUID.randomUUID().toString();
         List<File> extractedSystemFiles;
         try (InputStream is = file.getInputStream()) {
             extractedSystemFiles = extractVariablesFromZip(is, directoryForExport);
@@ -296,11 +295,12 @@ public class CommonVariablesService {
                 String entryName = entry.getName();
                 Path entryPath = Paths.get(entryName);
 
-                if (entryName.contains("..") || entryPath.isAbsolute()) {
-                    throw new SecurityException("Invalid ZIP entry: " + entryName);
-                }
-
                 if (entryPath.startsWith(VAR_PARENT_DIR) && resolvedPath.startsWith(path)) {
+
+                    if (entryName.contains("..") || entryPath.isAbsolute()) {
+                        throw new SecurityException("Invalid ZIP entry: " + entryName);
+                    }
+
                     if (!entry.isDirectory()) {
                         Files.createDirectories(resolvedPath.getParent());
                         Files.copy(inputStream, resolvedPath);
@@ -334,8 +334,8 @@ public class CommonVariablesService {
         });
     }
 
-    private String exportVariablesGenerateFilename() {
-        return VARIABLES_PREFIX + "." + YAML_EXTENSION;
+    private String exportVariablesGenerateFilename(boolean isArchive) {
+        return VARIABLES_PREFIX + "." + (isArchive ? ZIP_EXTENSION : YAML_EXTENSION);
     }
 
     private byte[] stringMapAsByteArr(Map<String, String> variablesForExport) {
