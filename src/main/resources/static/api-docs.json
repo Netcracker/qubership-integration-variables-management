@@ -1,0 +1,1628 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Qubership Integration Platform Variables Management",
+    "description": "REST API of Qubership Integration Platform Variables Management microservice",
+    "version": "v1",
+    "x-api-kind": "no-bwc"
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "tags": [
+    {
+      "name": "secured-variable-controller-v-2",
+      "description": "Secured Variable Controller V2"
+    },
+    {
+      "name": "actions-log-controller",
+      "description": "Actions Log Controller"
+    },
+    {
+      "name": "common-variables-controller-v-2",
+      "description": "Common Variables Controller V2"
+    },
+    {
+      "name": "common-variables-controller",
+      "description": "Common Variables Controller"
+    },
+    {
+      "name": "import-instructions-controller",
+      "description": "Import Instructions Controller"
+    },
+    {
+      "name": "actions-log-export-controller",
+      "description": "Actions Log Export Controller"
+    },
+    {
+      "name": "secured-variable-controller",
+      "description": "Secured Variable Controller"
+    },
+    {
+      "name": "secret-controller-v-2",
+      "description": "Secret Controller V2"
+    }
+  ],
+  "paths": {
+    "/v2/secured-variables": {
+      "get": {
+        "tags": [
+          "secured-variable-controller-v-2"
+        ],
+        "description": "Get all secured variables names from all secrets",
+        "operationId": "getVariables",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SecretResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "secured-variable-controller-v-2"
+        ],
+        "description": "Add new secured variables",
+        "operationId": "addVariables",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SecuredVariablesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SecretResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "secured-variable-controller-v-2"
+        ],
+        "description": "Delete secured variables from multiple specified secrets",
+        "operationId": "deleteVariables",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "uniqueItems": true
+                },
+                "description": "Request map of \u003CSecret name, Set\u003CVariable name\u003E\u003E"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "secured-variable-controller-v-2"
+        ],
+        "description": "Update secured variables",
+        "operationId": "updateVariable",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SecuredVariablesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecretResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/secret/{secretName}": {
+      "post": {
+        "tags": [
+          "secret-controller-v-2"
+        ],
+        "description": "Create new secret",
+        "operationId": "createSecret",
+        "parameters": [
+          {
+            "name": "secretName",
+            "in": "path",
+            "description": "Name of secret",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z]+[-a-z0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v2/common-variables/import": {
+      "post": {
+        "tags": [
+          "common-variables-controller-v-2"
+        ],
+        "operationId": "importVariablesInternal",
+        "parameters": [
+          {
+            "name": "variablesNames",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "uniqueItems": true
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportVariablesResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/secured-variables": {
+      "get": {
+        "tags": [
+          "secured-variable-controller"
+        ],
+        "description": "Get all secured variables names",
+        "operationId": "getVariables_1",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "uniqueItems": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "secured-variable-controller"
+        ],
+        "description": "Add new secured variable(s)",
+        "operationId": "addVariables_1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Variables map of \u003Ckey, value\u003E to add"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "uniqueItems": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "secured-variable-controller"
+        ],
+        "description": "Delete set of secured variables",
+        "operationId": "deleteVariables_1",
+        "parameters": [
+          {
+            "name": "variablesNames",
+            "in": "query",
+            "description": "Set of names of secured variables",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "uniqueItems": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v1/secured-variables/import": {
+      "post": {
+        "tags": [
+          "secured-variable-controller"
+        ],
+        "description": "Import secured variables from a file",
+        "operationId": "importVariables",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "File to import"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "uniqueItems": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/common-variables": {
+      "get": {
+        "tags": [
+          "common-variables-controller"
+        ],
+        "description": "Get all common variables",
+        "operationId": "getVariables_2",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "common-variables-controller"
+        ],
+        "description": "Add new common variable(s)",
+        "operationId": "addVariables_2",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "New common variables as a map of \u003Ckey, value\u003E"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-api-kind": "bwc"
+      },
+      "delete": {
+        "tags": [
+          "common-variables-controller"
+        ],
+        "description": "Delete set of variables",
+        "operationId": "deleteVariables_2",
+        "parameters": [
+          {
+            "name": "variablesNames",
+            "in": "query",
+            "description": "Set of variables to remove",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "x-api-kind": "bwc"
+      }
+    },
+    "/v1/common-variables/preview": {
+      "post": {
+        "tags": [
+          "common-variables-controller"
+        ],
+        "description": "Get common variables from file without saving",
+        "operationId": "importPreview",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "File to import"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ImportVariablePreview"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/common-variables/import": {
+      "post": {
+        "tags": [
+          "common-variables-controller"
+        ],
+        "description": "Import common variables from file",
+        "operationId": "importVariables_1",
+        "parameters": [
+          {
+            "name": "variablesNames",
+            "in": "query",
+            "description": "Variables names. If set, only these variables will be imported",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "uniqueItems": true
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "File to import"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ImportVariableDTO"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true,
+        "x-api-kind": "bwc"
+      }
+    },
+    "/v1/common-variables/import-instructions": {
+      "get": {
+        "tags": [
+          "import-instructions-controller"
+        ],
+        "description": "Get all import instructions for common variables",
+        "operationId": "getImportInstructions",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportInstructionsDTO"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "import-instructions-controller"
+        ],
+        "description": "Create new import instruction",
+        "operationId": "addImportInstruction",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportInstructionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportInstructionDTO"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "import-instructions-controller"
+        ],
+        "description": "Delete import instructions",
+        "operationId": "deleteImportInstructions",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "description": "List of import instructions ids to delete",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "import-instructions-controller"
+        ],
+        "description": "Update existing import instruction",
+        "operationId": "updateImportInstruction",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportInstructionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportInstructionDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/common-variables/import-instructions/upload": {
+      "post": {
+        "tags": [
+          "import-instructions-controller"
+        ],
+        "description": "Upload import instructions configuration from file",
+        "operationId": "uploadImportInstructionsConfig",
+        "parameters": [
+          {
+            "name": "labels",
+            "in": "header",
+            "description": "List of labels that should be added on uploaded instructions",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Yaml file"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ImportInstructionsExecutionResult"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/common-variables/import-instructions/search": {
+      "post": {
+        "tags": [
+          "import-instructions-controller"
+        ],
+        "description": "Search for import instructions",
+        "operationId": "searchImportInstructions",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportInstructionsSearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportInstructionsDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/common-variables/import-instructions/filter": {
+      "post": {
+        "tags": [
+          "import-instructions-controller"
+        ],
+        "description": "Filter import instructions",
+        "operationId": "filterImportInstructions",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "description": "Import instructions filter request object",
+                "items": {
+                  "$ref": "#/components/schemas/ImportInstructionsFilterRequest"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportInstructionsDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/actions-log": {
+      "post": {
+        "tags": [
+          "actions-log-controller"
+        ],
+        "description": "Get action logs",
+        "operationId": "findBySearchRequest",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionLogSearchCriteria"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionLogResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/secured-variables/{securedVariableName}": {
+      "patch": {
+        "tags": [
+          "secured-variable-controller"
+        ],
+        "description": "Update or add single secured variable",
+        "operationId": "updateVariable_1",
+        "parameters": [
+          {
+            "name": "securedVariableName",
+            "in": "path",
+            "description": "Secured variable name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "string",
+                "description": "Secured variable value"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StringResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/common-variables/{name}": {
+      "patch": {
+        "tags": [
+          "common-variables-controller"
+        ],
+        "description": "Update or add single common variable",
+        "operationId": "updateVariable_2",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "description": "Name of the variable",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "string",
+                "description": "New value of the parameter"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StringResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-api-kind": "bwc"
+      }
+    },
+    "/v2/secured-variables/{secretName}": {
+      "get": {
+        "tags": [
+          "secured-variable-controller-v-2"
+        ],
+        "description": "Get all secured variables names from specified secret",
+        "operationId": "getVariablesForSecret",
+        "parameters": [
+          {
+            "name": "secretName",
+            "in": "path",
+            "description": "Name of secret",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "uniqueItems": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "secured-variable-controller-v-2"
+        ],
+        "description": "Delete secured variables from specified secret",
+        "operationId": "deleteVariablesFromSecret",
+        "parameters": [
+          {
+            "name": "secretName",
+            "in": "path",
+            "description": "Name of secret",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "variablesNames",
+            "in": "query",
+            "description": "Set of variables names for removal",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "uniqueItems": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v2/secret/template/{secretName}": {
+      "get": {
+        "tags": [
+          "secret-controller-v-2"
+        ],
+        "description": "Get helm template for creating secret on kubernetes as a file",
+        "operationId": "downloadSecretHelmChart",
+        "parameters": [
+          {
+            "name": "secretName",
+            "in": "path",
+            "description": "Name of secret",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/common-variables/import-instructions/config": {
+      "get": {
+        "tags": [
+          "import-instructions-controller"
+        ],
+        "description": "Get all import instructions for common variables in the configuration format",
+        "operationId": "getImportInstructionsConfig",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportInstructionsConfig"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/common-variables/export": {
+      "get": {
+        "tags": [
+          "common-variables-controller"
+        ],
+        "description": "Export common variables as a file",
+        "operationId": "exportVariables",
+        "parameters": [
+          {
+            "name": "variablesNames",
+            "in": "query",
+            "description": "List of variables names to export",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "asArchive",
+            "in": "query",
+            "description": "Whether response should be in archive",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/actions-log/export": {
+      "get": {
+        "tags": [
+          "actions-log-export-controller"
+        ],
+        "description": "Export action log as a file",
+        "operationId": "export",
+        "parameters": [
+          {
+            "name": "actionTimeFrom",
+            "in": "query",
+            "description": "Timestamp from",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "actionTimeTo",
+            "in": "query",
+            "description": "Timestamp to",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SecuredVariablesRequest": {
+        "type": "object",
+        "description": "Request object for secured variables api",
+        "properties": {
+          "secretName": {
+            "type": "string",
+            "description": "Secret name"
+          },
+          "variables": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Set of secured variables \u003Ckey, value\u003E"
+          }
+        }
+      },
+      "SecretResponse": {
+        "type": "object",
+        "description": "Data containing in a secret",
+        "properties": {
+          "secretName": {
+            "type": "string",
+            "description": "Secret name"
+          },
+          "variablesNames": {
+            "type": "array",
+            "description": "Set of secured variables names",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "defaultSecret": {
+            "type": "boolean",
+            "description": "Whether this secret is used as a default one"
+          }
+        }
+      },
+      "ImportInstructionsExecutionResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "entityType": {
+            "type": "string",
+            "enum": [
+              "COMMON_VARIABLE"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DELETED",
+              "IGNORED",
+              "ERROR_ON_DELETE",
+              "NO_ACTION"
+            ]
+          },
+          "errorMessage": {
+            "type": "string"
+          }
+        }
+      },
+      "ImportVariableDTO": {
+        "type": "object",
+        "description": "Response object for result of variables import",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Variable name"
+          },
+          "value": {
+            "type": "string",
+            "description": "Variable value"
+          },
+          "status": {
+            "type": "string",
+            "description": "Status of variable import",
+            "enum": [
+              "CREATED",
+              "UPDATED",
+              "ERROR"
+            ]
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message"
+          }
+        }
+      },
+      "ImportVariablesResult": {
+        "type": "object",
+        "properties": {
+          "variables": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportVariableDTO"
+            }
+          },
+          "instructions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportInstructionsExecutionResult"
+            }
+          }
+        }
+      },
+      "ImportVariablePreview": {
+        "type": "object",
+        "description": "Result of common variables preview",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Variable name"
+          },
+          "value": {
+            "type": "string",
+            "description": "Variable value"
+          },
+          "currentValue": {
+            "type": "string",
+            "description": "Current variable value (if any)"
+          }
+        }
+      },
+      "ImportInstructionRequest": {
+        "type": "object",
+        "description": "Update import instruction request object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Import instruction id",
+            "pattern": "^[-._a-zA-Z0-9]+$"
+          },
+          "action": {
+            "type": "string",
+            "description": "Import instruction action",
+            "enum": [
+              "IGNORE"
+            ],
+            "pattern": "IGNORE"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "ImportInstructionDTO": {
+        "type": "object",
+        "description": "Import instruction response object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Import instruction/entity id"
+          },
+          "labels": {
+            "type": "array",
+            "description": "List of import instruction labels",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "modifiedWhen": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Timestamp of object last modification"
+          },
+          "preview": {
+            "type": "boolean",
+            "description": "Indicates whether the import instruction stored in QIP"
+          }
+        }
+      },
+      "ImportInstructionsSearchRequest": {
+        "type": "object",
+        "description": "Import instructions search request object",
+        "properties": {
+          "searchCondition": {
+            "type": "string",
+            "description": "Search value"
+          }
+        }
+      },
+      "ImportInstructionsDTO": {
+        "type": "object",
+        "description": "Entity import instructions response object",
+        "properties": {
+          "delete": {
+            "type": "array",
+            "description": "List of delete import instructions objects",
+            "items": {
+              "$ref": "#/components/schemas/ImportInstructionDTO"
+            },
+            "uniqueItems": true
+          },
+          "ignore": {
+            "type": "array",
+            "description": "List of ignore import instructions objects",
+            "items": {
+              "$ref": "#/components/schemas/ImportInstructionDTO"
+            },
+            "uniqueItems": true
+          }
+        }
+      },
+      "ImportInstructionsFilterRequest": {
+        "type": "object",
+        "description": "Import instructions filter request object",
+        "properties": {
+          "condition": {
+            "type": "string",
+            "description": "Filter condition",
+            "enum": [
+              "IS",
+              "IS_NOT",
+              "CONTAINS",
+              "DOES_NOT_CONTAIN",
+              "STARTS_WITH",
+              "ENDS_WITH",
+              "EMPTY",
+              "NOT_EMPTY",
+              "IN",
+              "NOT_IN",
+              "IS_WITHIN",
+              "IS_AFTER",
+              "IS_BEFORE"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "description": "Value"
+          },
+          "column": {
+            "type": "string",
+            "description": "Column name",
+            "enum": [
+              "ID",
+              "INSTRUCTION_ACTION",
+              "OVERRIDDEN_BY",
+              "LABELS",
+              "MODIFIED_WHEN"
+            ]
+          }
+        }
+      },
+      "ActionLogFilterRequestDTO": {
+        "type": "object",
+        "description": "Audit log filter request",
+        "properties": {
+          "column": {
+            "type": "string",
+            "description": "Audit log column name for filter",
+            "enum": [
+              "OPERATION",
+              "ENTITY_ID",
+              "ENTITY_TYPE",
+              "ENTITY_NAME",
+              "PARENT_ID",
+              "PARENT_NAME",
+              "REQUEST_ID",
+              "ACTION_TIME",
+              "INITIATOR"
+            ]
+          },
+          "condition": {
+            "type": "string",
+            "description": "Audit log filter condition",
+            "enum": [
+              "IS",
+              "IS_NOT",
+              "CONTAINS",
+              "DOES_NOT_CONTAIN",
+              "STARTS_WITH",
+              "ENDS_WITH",
+              "EMPTY",
+              "NOT_EMPTY",
+              "IN",
+              "NOT_IN",
+              "IS_WITHIN",
+              "IS_AFTER",
+              "IS_BEFORE"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "description": "Search value"
+          }
+        }
+      },
+      "ActionLogSearchCriteria": {
+        "type": "object",
+        "description": "Search request",
+        "properties": {
+          "offsetTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp of request offset"
+          },
+          "rangeTime": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Range in milliseconds"
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActionLogFilterRequestDTO"
+            }
+          }
+        }
+      },
+      "ActionLogDTO": {
+        "type": "object",
+        "description": "Action log single entity",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Id"
+          },
+          "actionTime": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Timestamp of action"
+          },
+          "entityType": {
+            "type": "string",
+            "description": "Action log entity type",
+            "enum": [
+              "SECURED_VARIABLE",
+              "COMMON_VARIABLE",
+              "FOLDER",
+              "CHAIN",
+              "SNAPSHOT",
+              "SNAPSHOT_CLEANUP",
+              "DEPLOYMENT",
+              "ELEMENT",
+              "DOMAIN",
+              "MASKED_FIELD",
+              "CHAINS",
+              "DATABASE_SYSTEM",
+              "DATABASE_SCRIPT",
+              "SERVICE_DISCOVERY",
+              "EXTERNAL_SERVICE",
+              "INNER_CLOUD_SERVICE",
+              "IMPLEMENTED_SERVICE",
+              "ENVIRONMENT",
+              "SPECIFICATION",
+              "SPECIFICATION_GROUP",
+              "SERVICES",
+              "SECRET",
+              "CHAIN_RUNTIME_PROPERTIES",
+              "MAAS_KAFKA",
+              "MAAS_RABBITMQ",
+              "IMPORT_INSTRUCTION",
+              "IMPORT_INSTRUCTIONS"
+            ]
+          },
+          "entityId": {
+            "type": "string",
+            "description": "Entity id"
+          },
+          "entityName": {
+            "type": "string",
+            "description": "Entity name"
+          },
+          "parentId": {
+            "type": "string",
+            "description": "Parent entity id"
+          },
+          "parentType": {
+            "type": "string",
+            "description": "Action log entity type",
+            "enum": [
+              "SECURED_VARIABLE",
+              "COMMON_VARIABLE",
+              "FOLDER",
+              "CHAIN",
+              "SNAPSHOT",
+              "SNAPSHOT_CLEANUP",
+              "DEPLOYMENT",
+              "ELEMENT",
+              "DOMAIN",
+              "MASKED_FIELD",
+              "CHAINS",
+              "DATABASE_SYSTEM",
+              "DATABASE_SCRIPT",
+              "SERVICE_DISCOVERY",
+              "EXTERNAL_SERVICE",
+              "INNER_CLOUD_SERVICE",
+              "IMPLEMENTED_SERVICE",
+              "ENVIRONMENT",
+              "SPECIFICATION",
+              "SPECIFICATION_GROUP",
+              "SERVICES",
+              "SECRET",
+              "CHAIN_RUNTIME_PROPERTIES",
+              "MAAS_KAFKA",
+              "MAAS_RABBITMQ",
+              "IMPORT_INSTRUCTION",
+              "IMPORT_INSTRUCTIONS"
+            ]
+          },
+          "parentName": {
+            "type": "string",
+            "description": "Parent entity name"
+          },
+          "requestId": {
+            "type": "string",
+            "description": "Request id with which request was initialized"
+          },
+          "operation": {
+            "type": "string",
+            "description": "Action log operation",
+            "enum": [
+              "CREATE",
+              "UPDATE",
+              "DELETE",
+              "EXPORT",
+              "IMPORT",
+              "CREATE_OR_UPDATE",
+              "COPY",
+              "MOVE",
+              "REVERT",
+              "GROUP",
+              "UNGROUP",
+              "SCALE",
+              "EXECUTE",
+              "ACTIVATE",
+              "DEPRECATE"
+            ]
+          },
+          "userId": {
+            "type": "string",
+            "description": "Id of user who triggered action"
+          },
+          "username": {
+            "type": "string",
+            "description": "Name of user who triggered action"
+          }
+        }
+      },
+      "ActionLogResponse": {
+        "type": "object",
+        "description": "Action log response with entities",
+        "properties": {
+          "actionLogs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActionLogDTO"
+            }
+          },
+          "recordsAfterRange": {
+            "type": "integer",
+            "format": "int64",
+            "description": "How much records are left after specified range"
+          }
+        }
+      },
+      "StringResponse": {
+        "type": "object",
+        "description": "Common response object",
+        "properties": {
+          "response": {
+            "type": "string",
+            "description": "Response data"
+          }
+        }
+      },
+      "ImportInstructionsConfig": {
+        "type": "object",
+        "description": "Entity import instruction config response object",
+        "properties": {
+          "delete": {
+            "type": "array",
+            "description": "List of delete instruction ids",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "ignore": {
+            "type": "array",
+            "description": "List of ignore instruction ids",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    }
+  }
+}
