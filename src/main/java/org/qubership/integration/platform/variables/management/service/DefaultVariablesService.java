@@ -60,11 +60,12 @@ public class DefaultVariablesService {
             securedVariableService.createSecuredVariablesSecret(securedVariableService.getKubeSecretV2Name());
 
             Map<String, String> defaultCommonVariables = getDefaultCommonVariables();
-
+            log.info("DefaultCommonVariables: {}", defaultCommonVariables);
+            commonVariablesService.addVariablesUnlogged(defaultCommonVariables);
+            log.info("Visible common variable");
             securedVariableService.deleteVariables(
                     securedVariableService.getKubeSecretV2Name(), defaultCommonVariables.keySet(), false);
-
-            commonVariablesService.addVariablesUnlogged(defaultCommonVariables);
+            log.info("Restore variables finished***");
             log.debug("Restore variables finished");
         } catch (Exception e) {
             MDC.put("error_code", "8050");
