@@ -4,7 +4,7 @@ server:
 
 spring:
   application:
-    name: ${cloud.microservice.name}
+    name: ${MICROSERVICE_NAME:qip-variables-management}
   cloud:
     gateway:
       routes:
