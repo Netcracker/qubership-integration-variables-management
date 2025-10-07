@@ -17,15 +17,12 @@
 package org.qubership.integration.platform.variables.management;
 
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
 public class VariablesManagementApplicationRunner {
 
     public static void main(String[] args) {
-        SpringApplication app = new SpringApplication(VariablesManagementApplicationRunner.class);
-        app.setWebApplicationType(WebApplicationType.SERVLET);
-        app.run(args);
+        new SpringApplication(VariablesManagementApplicationRunner.class).run(args);
     }
 }
