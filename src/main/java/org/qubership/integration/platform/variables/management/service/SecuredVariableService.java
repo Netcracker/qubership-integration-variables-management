@@ -152,11 +152,9 @@ public class SecuredVariableService {
             return;
         }
 
-        Set<String> existedVariables;
-
         lock.lock();
         try {
-            existedVariables = secretService.getSecretData(secretName, true).keySet();
+            Set<String> existedVariables = secretService.getSecretData(secretName, true).keySet();
             variablesNames = variablesNames.stream()
                     .filter(existedVariables::contains)
                     .collect(Collectors.toSet());
@@ -170,9 +168,7 @@ public class SecuredVariableService {
         }
 
         if (logOperation) {
-            variablesNames.stream()
-                    .filter(existedVariables::contains)
-                    .forEach(name -> logSecuredVariableAction(name, secretName, LogOperation.DELETE));
+            variablesNames.forEach(name -> logSecuredVariableAction(name, secretName, LogOperation.DELETE));
         }
     }
 
