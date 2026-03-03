@@ -42,3 +42,8 @@ logging:
 qip:
   internal-services:
     runtime-catalog: http://runtime-catalog:8080
+
+springdoc:
+  swagger-ui:
+    tagsSorter: alpha
+    operationsSorter: alpha
